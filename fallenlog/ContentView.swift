@@ -6,15 +6,46 @@
 //
 
 import SwiftUI
-import CoreData
+import SwiftData
 import AVFoundation // probably necessary here
-import AVKit // playback (preview?)
+
+/**
+ 
+ - Add family name annotations (Amanitaceae)
+ - Possibly prompts for cap/stipe/gill characteristics
+ - Tags as discrete categories
+ - Add modal Edit view to Entries
+ + Make camera button bigger
+    + looks like shit but it works
+ + add Back button before image is captured
+    - redesign Back button (different icon or something)
+ - the fullscreencover is linked to the list element, not the picture. potentially Annoying feature.
+    - Or i rework the way we view images with the modal Edit pane
+ 
+ 
+ */
+
+
+
+
+struct ExportSettings {
+    var exportName: String
+    init(exportName: String = UIDevice.current.name) {
+        self.exportName = exportName
+    }
+}
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    var exportSettings = ExportSettings()
+    
+    @State var exportName: String = UIDevice.current.name
+    @Query var entries: [PhotoEntry]
+    
     var body: some View {
         NavigationView {
-            VStack {
+            ZStack {
+                PhotoEntryView()
                 CameraView()
             }
             .toolbar {
@@ -22,7 +53,7 @@ struct ContentView: View {
                     NavigationLink {
                         Text("export yuor data!!!")
                     } label: {
-                        Button(action: notelistView) {
+                        Button(action: {}) {
                             Label("Export", systemImage: "square.and.arrow.up")
                         }
                     }
@@ -30,11 +61,28 @@ struct ContentView: View {
                 ToolbarItem {
                     NavigationLink {
                         // settings page
-                        Text("Settings")
+                        VStack {
+                            Text("Settings")
+                            List {
+                                HStack {
+                                    Text("Name on export")
+                                    TextField("Export name", text: $exportName)
+                                }
+                            }
+                            Button(action: { exportData(settings: exportSettings)}, label: {
+                                Text("Export")
+                                    .bold()
+                                    .foregroundStyle(Color.black)
+                                    .background(Color.blue)
+                                    .padding(.vertical,10)
+                                    .padding(.horizontal,10)
+                                    .clipShape(.capsule)
+                            })
+                        }
                         // export mostly
                         // name on export (for labelling entries)
                     } label: {
-                        Button(action: settingsView) {
+                        Button(action: populateSettings) {
                             Label("Options", systemImage: "gearshape")
                         }
                     }
@@ -43,238 +91,16 @@ struct ContentView: View {
         }
     }
     
-    private func settingsView() {
-        // what do
+    func exportData(settings: ExportSettings) {
+        print("yayy data exported :p")
     }
     
-    private func notelistView() {
-        // what do
+    func populateSettings() {
+        // remember this from vassalize.
+        // i have to populate the fields with the stored settings??
     }
 }
 
 #Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-}
-
-struct CameraView: View {
-    @Environment(\.dismiss) var dismiss
-    @State private var isShowingCamera = false
-    @StateObject var camera = CameraModel()
-    
-    var body: some View {
-        Button(action: {isShowingCamera.toggle()}, label: {
-            Image(systemName: "camera.viewfinder")
-            
-        })
-        .fullScreenCover(isPresented: $isShowingCamera, onDismiss: cameraDismissed, content: {
-            ZStack {
-                CameraPreview(camera: camera)
-                //            Color.black
-                    .ignoresSafeArea(.all, edges: .all)
-                VStack {
-                    if camera.isTaken {
-                        HStack {
-                            Button(action: {
-                                isShowingCamera.toggle()
-                            }, label: {
-                                Image(systemName: "chevron.backward.2")
-                                    .foregroundStyle(Color.black)
-                                    .padding()
-                                    .background(Color.white)
-                                    .clipShape(Circle())
-                            })
-                            .padding(.leading,10)
-                            if camera.couldNotRecord {
-                                Text("Try again")
-                                    .bold()
-                                    .background(Color.white)
-                                    .padding(.vertical,10)
-                                    .padding(.horizontal,10)
-                                    .clipShape(.rect)
-                            }
-                            Spacer()
-                            Button(action: camera.retake, label: {
-                                Image(systemName: "arrow.triangle.2.circlepath.camera")
-                                    .foregroundStyle(Color.black)
-                                    .padding()
-                                    .background(Color.white)
-                                    .clipShape(Circle())
-                            })
-                            .padding(.trailing,10)
-                        }
-                    }
-                    Spacer()
-                    HStack {
-                        if camera.isTaken {
-                            Button(action: {if !camera.isSaved{camera.savePic()}}, label: {
-                                Text(camera.isSaved ? "Saved":"Save")
-                                    .foregroundStyle(Color.black)
-                                    .fontWeight(.semibold)
-                                    .padding(.vertical,10)
-                                    .padding(.horizontal,20)
-                                    .background(Color.white)
-                                    .clipShape(.capsule)
-                            })
-                            .padding(.leading)
-                            .disabled(camera.couldNotRecord)
-                        } else {
-                            Button(action: camera.takepic, label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.white)
-                                        .frame(width:65, height:65)
-                                    Circle()
-                                        .stroke(Color.white,lineWidth: 2)
-                                        .frame(width:75,height: 75)
-                                }
-                            })
-                        }
-                    }
-                    .frame(height:75)
-                }
-            }
-            .onAppear(perform: {
-                camera.check()
-                
-            })
-        })
-    }
-    public func cameraDismissed() {
-        camera.session.stopRunning()
-        camera.isTaken = false
-    }
-}
-
-struct CameraPreview: UIViewRepresentable {
-    @ObservedObject var camera: CameraModel
-    
-    func makeUIView(context: Context) -> UIView {
-        let view = UIViewType(frame: UIScreen.main.bounds)
-        DispatchQueue.main.async {
-            camera.preview = AVCaptureVideoPreviewLayer(session: camera.session)
-            camera.preview.frame = view.frame
-            
-            // some other properties ig
-            camera.preview.videoGravity = .resizeAspectFill
-            view.layer.addSublayer(camera.preview)
-            
-            camera.session.startRunning()
-        }
-        
-        
-        return view
-    }
-    
-    func updateUIView(_ uiView: UIView, context: Context) {
-        
-    }
-}
-
-class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
-    @Published var isTaken = false;
-    @Published var session = AVCaptureSession()
-    @Published var alert = false;
-    @Published var output = AVCapturePhotoOutput()
-    @Published var preview: AVCaptureVideoPreviewLayer!
-    @Published var picData = Data(count: 0)
-    @Published var isSaved = false
-    @Published var couldNotRecord = false
-    func check() {
-        // camera permission
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized: // Yes Allow
-            self.setup()
-            return
-        case .notDetermined: // not yet
-            AVCaptureDevice.requestAccess(for: .video, completionHandler: { (status) in
-                if status {
-                    self.setup()
-                }
-            })
-        case .restricted: // "isn't permitted"
-            self.alert.toggle()
-            return
-        case .denied: // explicitly denied
-            self.alert.toggle()
-            return
-        default:
-            return
-        }
-    }
-    
-    func setup() {
-        do {
-            self.session.beginConfiguration()
-            if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
-                do {
-                    let input = try AVCaptureDeviceInput(device: device)
-                    if self.session.canAddInput(input) {
-                        self.session.addInput(input)
-                    }
-                    
-                    if self.session.canAddOutput(self.output) {
-                        self.session.addOutput(self.output)
-                    }
-                    
-                    self.session.commitConfiguration()
-                } catch {
-                    print("error in setup")
-                }
-            } else {
-                print("camera not avaialble")
-            }
-        }
-    }
-    
-    func retake() {
-        // in tutorial guy has global(qos: .background)
-        DispatchQueue.global(qos: .background).async {
-            self.session.startRunning()
-            DispatchQueue.main.async {
-                withAnimation {self.isTaken.toggle()}
-                // should again be true here?
-                self.isSaved = false
-            }
-        }
-    }
-    
-    func takepic() {
-        // it's global(qos: .background).asyncAfter(deadline: .now()+0.2) or main.async.
-        // issue with couldNotCapture is that the capture session ends before the photoOutput delegate is called.
-        self.output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
-        DispatchQueue.main.async {
-            self.session.stopRunning()
-            DispatchQueue.main.async {
-                withAnimation{self.isTaken.toggle()}
-                // should be true here
-            }
-        }
-//        self.session.stopRunning() // comment says maybe out here???
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
-        if error != nil {
-            print("photooutput error")
-            print(error!)
-            self.couldNotRecord = true
-            return
-        }
-        self.couldNotRecord = false
-        print("taken")
-        
-        guard let imageData = photo.fileDataRepresentation() else {
-            print("imagedata failed")
-            return
-        }
-        self.picData = imageData
-        
-    }
-    
-    func savePic() {
-        let image = UIImage(data: self.picData)!
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        self.isSaved = true
-        print("image saved!!")
-    }
-    
+    ContentView()
 }
