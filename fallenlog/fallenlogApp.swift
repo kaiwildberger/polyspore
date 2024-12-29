@@ -6,10 +6,14 @@
 //
 
 import SwiftUI
+import AVFoundation
+import AVKit
 
 @main
 struct fallenlogApp: App {
     let persistenceController = PersistenceController.shared
+    
+    
 
     var body: some Scene {
         WindowGroup {
